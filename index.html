@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Macht die Seite auf dem iPhone zu einer echten Vollbild-App -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mein Planer">
+    <title>Mein Planer</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; padding: 24px 16px; background: #f2f2f7; color: #1c1c1e; }
+        h1 { font-size: 28px; margin-bottom: 16px; }
+
+        /* Umschalter Tag / Woche */
+        .tabs { display: flex; background: #e5e5ea; border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .tab.active { background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        /* Eingabebereich */
+        .input-group { display: flex; gap: 8px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 16px; background: #fff; }
+        button { background: #007aff; color: white; border: none; border-radius: 10px; padding: 0 18px; font-size: 20px; font-weight: bold; cursor: pointer; }
+
+        /* Aufgabenliste */
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { background: #fff; padding: 14px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        li.done span { text-decoration: line-through; color: #8e8e93; }
+        .task-left { display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer; }
+        .delete-btn { background: #ff3b30; color: white; font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<h1>Meine Ziele 🎯</h1>
+
+<div class="tabs">
+    <div id="tab-day" class="tab active" onclick="switchMode('day')">Tagesplan</div>
+    <div id="tab-week" class="tab" onclick="switchMode('week')">Wochenplan</div>
+</div>
+
+<div class="input-group">
+    <input type="text" id="taskInput" placeholder="Neues Ziel eingeben...">
+    <button onclick="addTask()">+</button>
+</div>
+
+<ul id="taskList"></ul>
+
+<script>
+    let currentMode = 'day'; // 'day' oder 'week'
+    let tasks = JSON.parse(localStorage.getItem('myPlannerTasks')) || [];
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.getElementById('tab-day').classList.toggle('active', mode === 'day');
+        document.getElementById('tab-week').classList.toggle('active', mode === 'week');
+        renderTasks();
+    }
+
+    function addTask() {
+        const input = document.getElementById('taskInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        tasks.push({ id: Date.now(), text: text, mode: currentMode, done: false });
+        input.value = '';
+        saveAndRender();
+    }
+
+    function toggleTask(id) {
+        tasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
+        saveAndRender();
+    }
+
+    function deleteTask(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        saveAndRender();
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('myPlannerTasks', JSON.stringify(tasks));
+        renderTasks();
+    }
+
+    function renderTasks() {
+        const list = document.getElementById('taskList');
+        list.innerHTML = '';
+        const filtered = tasks.filter(t => t.mode === currentMode);
+
+        filtered.forEach(task => {
+            const li = document.createElement('li');
+            if (task.done) li.classList.add('done');
+            li.innerHTML = `
+          <div class="task-left" onclick="toggleTask(${task.id})">
+            <input type="checkbox" ${task.done ? 'checked' : ''}>
+            <span>${task.text}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteTask(${task.id})">Löschen</button>
+        `;
+            list.appendChild(li);
+        });
+    }
+
+    renderTasks();
+</script>
+</body>
+</html>

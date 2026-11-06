@@ -48,6 +48,16 @@
     <div id="tab-week" class="tab" onclick="switchMode('week')">Wochenplan</div>
 </div>
 
+<button id="notifyBtn" onclick="requestNotificationPermission()" style="width: 100%; background: #34c759; margin-bottom: 16px; font-size: 15px; padding: 10px;">
+    🔔 Benachrichtigungen aktivieren
+</button>
+
+
+
+
+
+
+
 <div class="input-group">
     <input type="text" id="taskInput" placeholder="Neues Ziel...">
     <input type="time" id="timeInput">
@@ -145,7 +155,10 @@
             <input type="checkbox" ${task.done ? 'checked' : ''}>
             <span>${task.time ? `[${task.time}] ` : ''}${task.text}</span>
           </div>
-          <button class="delete-btn" onclick="deleteTask(${task.id})">Löschen</button>
+         <div style="display: flex; gap: 6px;">
+  ${task.time ? `<button style="background: #34c759; color: white; border: none; font-size: 13px; padding: 6px 10px; border-radius: 8px; cursor: pointer;" onclick="addToAppleCalendar(${task.id})">📅 Kalender</button>` : ''}
+  <button class="delete-btn" onclick="deleteTask(${task.id})">Löschen</button>
+</div>
         `;
             list.appendChild(li);
         });
@@ -201,10 +214,101 @@
     }
 
 
+    // 1. Fragt das iPhone: "Darf diese App Mitteilungen senden?"
+    function requestNotificationPermission() {
+        if (!("Notification" in window)) {
+            alert("Benachrichtigungen werden von diesem Browser nicht unterstützt.");
+            return;
+        }
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                alert("Super! Mitteilungen sind jetzt aktiv.");
+                document.getElementById('notifyBtn').style.display = 'none';
+            } else {
+                alert("Mitteilungen wurden abgelehnt.");
+            }
+        });
+    }
+
+    // 2. Schickt die eigentliche Mitteilung auf den Sperrbildschirm
+    function sendNotification(title, text) {
+        if (Notification.permission === "granted") {
+            new Notification(title, {
+                body: text,
+                icon: "favicon.ico"
+            });
+        }
+    }
 
 
+    function checkAlarms() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = `${hours}:${minutes}`; // z. B. "16:00"
+
+        // for-Schleife genau wie in Java:
+        for (let i = 0; i < tasks.length; i++) {
+            const task = tasks[i];
+
+            // Prüfen: Stimmt die Zeit? Noch nicht erledigt? Noch kein Alarm gesendet?
+            if (task.time === currentTime && task.done === false && !task.notified) {
+                sendNotification("⏰ Ziel-Erinnerung!", task.text);
+                task.notified = true;
+                saveAndRender();
+            }
+        }
+    }
+
+    // Startet die Prüfung alle 30 Sekunden
+    setInterval(checkAlarms, 30000);
 
 
+    function addToAppleCalendar(id) {
+        const task = tasks.find(t => t.id === id);
+        if (!task || !task.time) {
+            alert("Für dieses Ziel ist keine Uhrzeit hinterlegt.");
+            return;
+        }
+
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+
+        // Zerlegt die Uhrzeit z.B. "16:00" in Stunden und Minuten
+        const [hours, minutes] = task.time.split(':');
+        const startTime = `${yyyy}${mm}${dd}T${hours}${minutes}00`;
+
+        // Setzt das Ende standardmäßig auf 1 Stunde später
+        const endHour = String((parseInt(hours) + 1) % 24).padStart(2, '0');
+        const endTime = `${yyyy}${mm}${dd}T${endHour}${minutes}00`;
+
+        // Der Standard-Aufbau einer Kalender-Datei (.ics)
+        const icsData = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "BEGIN:VEVENT",
+            `SUMMARY:${task.text}`,
+            `DTSTART:${startTime}`,
+            `DTEND:${endTime}`,
+            "DESCRIPTION:Erstellt aus deinem ZielPlaner",
+            "BEGIN:VALARM",
+            "TRIGGER:-PT0M",
+            "ACTION:DISPLAY",
+            "DESCRIPTION:Erinnerung",
+            "END:VALARM",
+            "END:VEVENT",
+            "END:VCALENDAR"
+        ].join("\r\n");
+
+        // Löst den Datei-Download / das Öffnen in iOS aus
+        const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${task.text}.ics`;
+        link.click();
+    }
 
 
 

@@ -73,6 +73,28 @@
     let currentMode = 'day'; // 'day' oder 'week'
     let tasks = JSON.parse(localStorage.getItem('myPlannerTasks')) || [];
 
+
+    // Heutiges Datum als Text holen (z. B. "22.11.2026")
+    const todayStr = new Date().toLocaleDateString();
+    const lastActiveDate = localStorage.getItem('lastPlannerDate');
+
+    // Wenn ein Datum gespeichert ist und es NICHT von heute ist:
+    if (lastActiveDate && lastActiveDate !== todayStr) {
+        // Es ist ein neuer Tag!
+        // Wir setzen alle Tages-Aufgaben (mode === 'day') wieder auf nicht erledigt (done = false)
+        // und erlauben neue Benachrichtigungen (notified = false)
+        tasks = tasks.map(t => {
+            if (t.mode === 'day') {
+                return { ...t, done: false, notified: false };
+            }
+            return t;
+        });
+    }
+
+    // Speichere das heutige Datum als das "letzte aktive Datum" ab
+    localStorage.setItem('lastPlannerDate', todayStr);
+
+
     function switchMode(mode) {
         currentMode = mode;
         document.getElementById('tab-day').classList.toggle('active', mode === 'day');
